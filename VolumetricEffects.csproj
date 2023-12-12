@@ -64,7 +64,6 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="RaymarchCamera.cs" />
-        <Compile Include="RaymarchCameraLoader.cs" />
         <Compile Include="ShaderLoader.cs" />
         <Compile Include="Properties\AssemblyInfo.cs"/>
     </ItemGroup>

@@ -1,18 +1,19 @@
-﻿using System;
-using System.Runtime.InteropServices;
-using UniLinq;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace VolumetricEffects
 {
     
-    [KSPAddon(KSPAddon.Startup.FlightAndEditor, false)]
+    [KSPAddon(KSPAddon.Startup.Flight, false)]
     public class RaymarchCamera : MonoBehaviour
     {
         public Shader raymarchShader = ShaderLoader.shaderFinder("VolumetricEffects/RaymarchShader");
         private Material raymarchMat;
         private Camera targetCamera;
-
+        public float _maxDistance = 4;
+        public float _maxSteps = 164;
+        public Vector4 _sphere1 = new Vector4(0, 0, 0, 2);
+        public Transform _directionalLight;
+        
         public Material raymarchMaterial
         {
             get
@@ -40,6 +41,19 @@ namespace VolumetricEffects
                 return targetCamera;
             }
         }
+
+        public Transform getLightTransform
+        {
+            get
+            {
+                if (!_directionalLight)
+                {
+                    _directionalLight = Sun.Instance.GetComponent<Light>().transform;
+                }
+
+                return _directionalLight;
+            }
+        }
         
 
         private void OnRenderImage(RenderTexture source, RenderTexture destination)
@@ -53,11 +67,17 @@ namespace VolumetricEffects
                 return;
             }
             
+            raymarchMaterial.SetVector("_LightDirection", getLightTransform ? getLightTransform.forward : Vector3.down);
             raymarchMaterial.SetMatrix("_CamFrustum", CamFrustum(getCamera));
             raymarchMaterial.SetMatrix("_CamToWorld", getCamera.cameraToWorldMatrix);
-            raymarchMaterial.SetVector("_CamWorldSpace", getCamera.transform.position);
+            raymarchMaterial.SetFloat("_maxDistance", _maxDistance);
+            raymarchMaterial.SetFloat("_maxSteps", _maxSteps);
+            raymarchMaterial.SetVector("_sphere1", _sphere1);
 
+            
             RenderTexture.active = destination;
+            raymarchMaterial.SetTexture("_MainTex", source);
+            
             GL.PushMatrix();
             GL.LoadOrtho();
             raymarchMaterial.SetPass(0);
@@ -110,10 +130,9 @@ namespace VolumetricEffects
             return frustum;
 
         }
-
-
-        public void Awake()
+        public void Start()
         {
+            // Prepare targetCamera to the FlightCamera
             targetCamera = FlightCamera.fetch.mainCamera;
             if (targetCamera == null && targetCamera.activeTexture == null)
             {
@@ -123,8 +142,25 @@ namespace VolumetricEffects
             {
                 Debug.Log("[Volumetric Effects] Target Camera has been located!");
             }
+            _directionalLight = Sun.Instance.GetComponent<Light>().transform;
+            if (_directionalLight == null)
+            {
+                Debug.Log("[Volumetric Effects] Sunlight transform could not be obtained!");
+            }
+            else
+            {
+                Debug.Log("[Volumetric Effects] Sunlight transform has been located!");
 
+            }
+            
+            // Add the prepared script to the Flight Camera as long as all preparations are complete
+            if (FlightCamera.fetch.mainCamera.gameObject.GetComponent<RaymarchCamera>() == null && _directionalLight != null && targetCamera != null)
+            {
+                FlightCamera.fetch.mainCamera.gameObject.AddComponent<RaymarchCamera>();
+                Debug.Log($"[Volumetric Effects] Attached Raymarch Camera Script to Flight Camera of name {FlightCamera.fetch.mainCamera.name}");
+                return;
+            }
+            Debug.Log("[Volumetric Effects] Raymarch Camera Script has already been applied to Flight Camera or Camera/Light could not be found! Ignoring!");
         }
-
     }
 }
